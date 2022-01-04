@@ -1,0 +1,358 @@
+<html>
+<head>
+	<title>Demo</title>
+	<meta charset="utf-8">
+	<!-- Styles -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://d19vzq90twjlae.cloudfront.net/leaflet/v0.7.7/leaflet.css" />
+	<script src="https://d19vzq90twjlae.cloudfront.net/leaflet/v0.7.7/leaflet.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+<script src="bootstable.js"></script>
+	<style src="style.css"> </style>
+	<style type="text/css">
+	 	html, body{
+	 		
+	 		padding: 0;
+	 		margin: 0;
+	 	}
+		#map{
+		position:absolute;
+		top:0;
+		left:0;
+		width:100%;
+		height:100%;
+		}
+		.sidenav {
+  height: 100%;
+  width: 650px;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  bottom:0;
+  background-color: #f1f1f1;
+  border-left: 1px solid #aaa;
+  overflow-x: hidden;
+  padding-top: 20px;
+}
+
+
+.main {
+  margin-right: 650px; /* Same as the width of the sidenav */
+  font-size: 12px; /* Increased text to enable scrolling */
+  padding: 0;
+  position: fixed;
+  top:0;
+  bottom:0;
+  left:0;
+   width:calc(100% - 650px);
+}
+.button {
+  background-color: #04AA6D;
+  border: none;
+  color: white;
+  padding: 5 10px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+  margin: 4px 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#table_container table{
+  font-size:12px;
+}
+	</style>
+
+</head>
+<body>
+
+	
+ <div class="main">
+   <div id="map"></div>
+</div>
+ <div class="sidenav">
+  <div style="padding-left:10px;display:flex;align-items: center;">
+	 <input class="form-control" type="file" id="fileInput" style="width:300px;display: none;" onchange="getFileName()" accept=".csv, .txt"/>
+	 <button id="loadBtn" class="btn btn-primary" style="display: inline-block;margin: 0 5px;" onclick="loadData()" >データを読み込む</button>
+	 <span id="fileSpan" style="display: inline-flex;border:1px solid #888;width:200px;height:32px;background-color: #fff;align-items: center;"></span>
+	 <button id="saveBtn" class="btn btn-primary" style="display: inline-block;margin: 0 10px;" onclick="downloadData()" disabled><span class="glyphicon glyphicon-save"></span>ダウンロード</button>
+	 <button id="addBtn" class="btn btn-primary" style="display: inline-block;margin: 0 10px;" onclick="addMarker()" style="margin-left: 50px;" disabled><span class="glyphicon glyphicon-plus-sign"></span>マーカーを追加</button>
+
+  </div>
+
+			
+			<div id="table_container" class="table-content" style="padding:10px;height:500px">
+			</div>
+
+
+
+</div>
+	<script type="text/javascript">
+        var markers = new Array();
+		var keys;
+		var fileName="",id_max=0;
+		var options = {
+			center: [35.676146, 139.746010],
+			zoom: 12
+		}
+		
+		var map = L.map('map', options);
+
+		L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {attribution: 'OSM'})
+		.addTo(map);
+        var markerLayer = L.featureGroup().addTo(map);
+		//map.addLayer(markerLayer);
+		
+
+	function loadData(){
+		$("#fileInput").click();
+	}
+	
+	function displayHTMLTable(data){
+	   $("#table_container").html("");
+		var table = "<table class='table table-borded table-responsive table-striped' id='table-list'>";
+		table+= "<thead class='table-dark'><tr>";
+		for (i=0;i<keys.length;i++){
+		  table+= "<th>";
+		  table+= keys[i];
+		  table+= "</th>";
+		}
+		 table+= "</tr></thead>";
+		 
+		for(i=0;i<data.length;i++){
+			table+= "<tbody><tr>";
+			var row = data[i];
+			var cur_id=row[keys[0]];
+			for(j=0;j<keys.length;j++){
+			   if (keys[j]=='lat' || keys[j]=='lon'){
+			      table+= "<td id='"+keys[j]+"_"+cur_id+"'>";
+			   }else{
+				table+= "<td>";
+			  }
+				table+= row[keys[j]];
+				table+= "</td>";
+			}
+			table+= "</tr>";
+		}
+		table+= "</tbody></table>";
+		$("#table_container").html(table);
+	}
+
+  function CSVToJSON(lines) {
+        //const lines = csv.split('\r\n');
+        var keys = lines[0].split(',');
+        return lines.slice(1).map(line => {
+            return line.split(',').reduce((acc, cur, i) => {
+                var toAdd = {};
+                toAdd[keys[i]] = cur;
+                return { ...acc, ...toAdd };
+            }, {});
+        });
+    };
+	//save data
+	function downloadData() {
+		var header=keys.join(",")+"\r\n";
+	  var csvText=TableToCSV('table-list', ',');
+	  csvText=csvText.replaceAll('\n', "\r\n")
+	  csvText=header+csvText;
+	  console.log(csvText);
+      var hiddenElement = document.createElement('a');
+		hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csvText);
+		hiddenElement.target = '_blank';
+		hiddenElement.download = fileName;
+		hiddenElement.click();
+	}
+	function displayMarker(data){
+	   markerLayer.clearLayers();
+	   for(i=0;i<data.length;i++){
+		   var myMarker = L.marker([data[i].lat, data[i].lon], {title: data[i].ID, id: data[i].ID,clickable:true, draggable: true})
+		.on('dragend', function(e) {
+		   console.log(e);
+		    updateLoc(e.target.options.title,e.target._latlng.lat,e.target._latlng.lng)
+			//myMarker.bindPopup("Moved to: " + lat[1] + ", " + lng[0] + ".");
+		});
+		myMarker.bindPopup("ID: " + data[i].ID);
+		markerLayer.addLayer(myMarker);
+	   }
+	   map.fitBounds(markerLayer.getBounds());
+	}
+	function updateLoc(id,lat,lon){
+	    var lat_rounded=roundToSix(lat);
+		var lon_rounded=roundToSix(lon);
+		$('#lat'+"_"+id).html(""+lat_rounded);
+		$('#lon'+"_"+id).html(""+lon_rounded);
+	}
+	function updateMarker(row_data){
+	   var cur_id,cur_lat,cur_lon;
+	   var cur_marker = null;
+	    for(i=0;i<keys.length;i++){
+	        switch(keys[i]) {
+			  case "ID":
+				cur_id=row_data[i];
+				break;
+			  case "lat":
+				cur_lat=row_data[i];
+				break;
+			  case "lon":
+				cur_lon=row_data[i];
+				break;
+			}
+		}
+		markerLayer.eachLayer(function (layer) {
+			//if (layer instanceof L.Marker) {
+                if (layer.options.id === cur_id) {
+                    cur_marker = layer;
+					console.log(cur_marker );
+					layer.setLatLng(L.latLng(cur_lat, cur_lon));
+
+                }
+           // }
+		});
+		
+	}
+	function roundToSix(num) {    
+		return +(Math.round(num + "e+6")  + "e-6");
+	}
+	function getFileName(){
+	  //fileName = document.getElementById('fileInput').value;
+	  
+	  var f=document.getElementById('fileInput');
+	  if (f.files&&f.files.item(0)){
+	     var f=document.getElementById('fileInput');
+	     fileName = f.files.item(0).name;
+                if (typeof (FileReader) != "undefined") {
+                    var reader = new FileReader();
+					console.log(reader);
+                    reader.onload = function (e) {
+                        
+                        var rows = e.target.result.split("\r\n");
+						rows=rows.filter(r=>r.trim().length>0);
+						console.log(rows);
+						if (rows.length>0){
+							keys = rows[0].split(',');
+							console.log(keys);
+							markers=rows.slice(1).map(line => {
+								return line.split(',').reduce((acc, cur, i) => {
+									var toAdd = {};
+									toAdd[keys[i]] = cur;
+									return { ...acc, ...toAdd };
+								}, {});
+							});
+						}else{
+						  alert("The file is empty");
+						  return;
+						}
+						
+                        //$("#dvCSV").html('');
+                        //$("#dvCSV").append(JSON.stringify(markers));
+						console.log(markers);
+						displayHTMLTable(markers);
+						var edit_cols=range(1, keys.length).join(",");
+						$("#table-list").SetEditable({
+							columnsEd: edit_cols ,//editable columns 
+						  onEdit: function(e) {console.log(e);
+						    console.log(e[0].innerText);
+							var row_data=e[0].innerText.split("\t");
+							console.log(row_data);
+							updateMarker(row_data);
+							}, 
+							onBeforeDelete: function(e) {
+								console.log(e[0].cells[0].innerText);
+								deleteMarker(e[0].cells[0].innerText);
+							},
+						  onDelete: function(e) {
+							 // console.log(e);
+						  }, 
+						});
+						if (markers.length>0){
+							id_max=markers.reduce((acc, e) => acc = acc > parseInt(e.ID) ? acc : parseInt(e.ID), 0);
+							console.log("Max ID:",id_max);
+						}
+						displayMarker(markers);
+						$('#saveBtn').prop('disabled', false);
+						$('#addBtn').prop('disabled', false);
+                    }
+                    reader.readAsText($("#fileInput")[0].files[0]);
+                } else {
+                    alert("This browser does not support HTML5.");
+                }
+
+			console.log(fileName);
+			$("#fileSpan").text(fileName);
+	  }
+	  
+
+	}
+	function addMarker(){
+		$('.leaflet-container').css('cursor','crosshair');
+		$('#addBtn').prop('disabled', true);
+		var last_td='<td name="buttons"><div class="btn-group pull-right"><button id="bEdit" type="button" class="btn btn-sm btn-default" onclick="butRowEdit(this);"><span class="glyphicon glyphicon-pencil"> </span></button><button id="bElim" type="button" class="btn btn-sm btn-default" onclick="butRowDelete(this);"><span class="glyphicon glyphicon-trash"> </span></button><button id="bAcep" type="button" class="btn btn-sm btn-default" style="display:none;" onclick="butRowAcep(this);"><span class="glyphicon glyphicon-ok"> </span></button><button id="bCanc" type="button" class="btn btn-sm btn-default" style="display:none;" onclick="butRowCancel(this);"><span class="glyphicon glyphicon-remove"> </span></button></div></td>';
+		map.on('click', 
+		 	function(e){
+				id_max+=1;
+		 		//var coord = e.latlng.toString().split(',');
+		 		var lat = roundToSix(e.latlng.lat);
+		 		var lon = roundToSix(e.latlng.lng);
+		 		var myMarker = L.marker([lat, lon], {title: String(id_max), id: String(id_max),clickable:true, draggable: true})
+				.on('dragend', function(e) {
+				   console.log(e);
+					updateLoc(e.target.options.id,e.target._latlng.lat,e.target._latlng.lng)
+					//myMarker.bindPopup("Moved to: " + lat[1] + ", " + lng[0] + ".");
+				});
+				myMarker.bindPopup("ID: " + id_max);
+				markerLayer.addLayer(myMarker);
+		 		//L.marker(e.latlng).addTo(map);
+				 
+                var table="<tbody><tr>";
+				 for(j=0;j<keys.length;j++){
+					if (keys[j]=='lat' || keys[j]=='lon'){
+						table+= "<td id='"+keys[j]+"_"+id_max+"'>";
+					}else{
+						table+= "<td>";
+					}
+					if (keys[j]=='ID'){
+						table+= id_max;
+					}else if(keys[j]=='lat'){
+						table+= lat;
+					}else if(keys[j]=='lon'){
+						table+= lon;
+					}else{
+						table+= "";
+					}
+			
+						table+= "</td>";
+				}
+				  table+=last_td;
+					table+= "</tr></tbody>";
+				$("table").append(table);
+                
+				//rowAddNew('table-list', [id_max,lat,lon,0,0,0,0]);
+				 map.off("click");
+				 $('.leaflet-container').css('cursor','grab');
+				 $('#addBtn').prop('disabled', false);
+		 	
+		 	});
+	}
+	function deleteMarker(id){
+		markerLayer.eachLayer(function (layer) {
+			//if (layer instanceof L.Marker) {
+                if (layer.options.id === id) {
+                    markerLayer.removeLayer(layer);
+
+                }
+           // }
+		});
+	}
+	function range(start, end) {
+		return Array(end - start + 1).fill().map((_, idx) => start + idx)
+	}
+	</script>
+
+</body>
+</html>
